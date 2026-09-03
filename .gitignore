@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Sensitive Session & LinkedIn Data
+data/
+*.session
+storage_state.json
+browser_profile/
+*.cookies
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Binaries & Tunnels
+*.exe
+*.zip
+*.tar.gz
