@@ -22,75 +22,58 @@ A Model Context Protocol (MCP) server that empowers any AI assistant to interact
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quickstart (Zero-Clone Setup)
 
-### 1. Prerequisites
-- **Python 3.10+**
-- **[uv](https://github.com/astral-sh/uv)** (fast Python package manager)
-- **Google Chrome** installed on your system
+You do **not** need to clone this repository to use the LinkedIn MCP server. As long as you have **[uv](https://github.com/astral-sh/uv)** and **Google Chrome** installed, your AI assistant can run it directly via `uvx`.
 
-### 2. Installation
-Clone this repository and sync dependencies:
+### 1. One-Time Interactive Sign-In
+Before connecting to an AI assistant, authenticate your LinkedIn session once:
 
 ```bash
-git clone https://github.com/<your-username>/linkedin-mcp.git
-cd linkedin-mcp
-uv sync
+uvx --from git+https://github.com/<your-username>/linkedin-mcp python -c "import asyncio; from linkedin_mcp.tools.auth import linkedin_start_login; asyncio.run(linkedin_start_login())"
 ```
 
-### 3. One-Time Interactive Login
-Run the interactive authentication tool to open a dedicated Chrome window and log in to your LinkedIn account:
-
-```bash
-uv run python -c "import asyncio; from linkedin_mcp.tools.auth import linkedin_start_login; asyncio.run(linkedin_start_login())"
-```
-
-1. Log in with your email, password, and complete 2FA if prompted.
-2. Once your LinkedIn home feed loads, the tool automatically verifies your identity and saves your secure session state locally to `~/.linkedin_mcp`.
-3. You only need to do this once. Your session persists across restarts.
+1. A dedicated Google Chrome window will open.
+2. Sign in with your LinkedIn credentials (and complete 2FA if prompted).
+3. Once your home feed loads, the tool verifies your account and securely saves your session state to `~/.linkedin_mcp`. Your session persists across restarts.
 
 ---
 
 ## 🔌 Connecting to Your AI Assistant
 
-This server supports both **Desktop AI clients** (via local `stdio`) and **Browser-based AI clients** (via Streamable HTTP or SSE tunnels).
+### Category A: Desktop AI Clients (Zero-Clone via `uvx`)
 
-### Category A: Desktop AI Apps (Zero Setup, No Tunnels Needed)
-
-Desktop apps run directly on your computer and talk to the server locally over standard input/output (`stdio`).
+Add the LinkedIn MCP server directly to your AI client's configuration file:
 
 #### 1. Claude Desktop
-Add this to your `claude_desktop_config.json` (found at `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your `claude_desktop_config.json` (`%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "linkedin": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "<PATH_TO_LINKEDIN_MCP>",
-        "run",
+        "--from",
+        "git+https://github.com/<your-username>/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
   }
 }
 ```
-*(Replace `<PATH_TO_LINKEDIN_MCP>` with your actual project directory path, e.g., `C:/Users/chimb/LinkedIn mcp`)*.
 
 #### 2. Antigravity
-Add the server to your Antigravity MCP settings:
+Add to your Antigravity MCP settings:
 
 ```json
 {
   "mcpServers": {
     "linkedin": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "<PATH_TO_LINKEDIN_MCP>",
-        "run",
+        "--from",
+        "git+https://github.com/<your-username>/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
@@ -99,17 +82,16 @@ Add the server to your Antigravity MCP settings:
 ```
 
 #### 3. Cursor / Windsurf
-Add to `.cursor/mcp.json` or global MCP settings:
+Add to `.cursor/mcp.json` or your global MCP settings:
 
 ```json
 {
   "mcpServers": {
     "linkedin": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "<PATH_TO_LINKEDIN_MCP>",
-        "run",
+        "--from",
+        "git+https://github.com/<your-username>/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
@@ -119,7 +101,35 @@ Add to `.cursor/mcp.json` or global MCP settings:
 
 #### 4. Claude Code CLI
 ```bash
-claude mcp add linkedin uv --directory "<PATH_TO_LINKEDIN_MCP>" run linkedin-mcp
+claude mcp add linkedin uvx --from git+https://github.com/<your-username>/linkedin-mcp linkedin-mcp
+```
+
+---
+
+### Local Development / Contributing
+If you want to modify or contribute to the codebase:
+
+```bash
+git clone https://github.com/<your-username>/linkedin-mcp.git
+cd linkedin-mcp
+uv sync
+```
+
+To run locally against your local files:
+```json
+{
+  "mcpServers": {
+    "linkedin": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "<PATH_TO_LINKEDIN_MCP>",
+        "run",
+        "linkedin-mcp"
+      ]
+    }
+  }
+}
 ```
 
 ---
@@ -171,8 +181,13 @@ In your AI's custom connector settings, set the URL to:
 | | `start_login` | *(none)* | Opens interactive Chrome window for 1-click login / 2FA. |
 | | `logout` | *(none)* | Clears all stored session credentials and cookies. |
 | **Self-Profile** | `get_my_profile` | *(none)* | Retrieves full profile details for your authenticated account. |
-| *(Hard-Locked)* | `update_my_headline` | `new_headline` | Updates your headline (locked strictly to `/in/me`). |
-| | `update_my_about` | `new_about` | Updates your bio/About section (locked strictly to `/in/me`). |
+| *(Hard-Locked)* | `update_my_headline` | `headline` | Updates your headline (locked strictly to `/in/me`). |
+| | `update_my_about` | `summary` | Updates your bio/About section (locked strictly to `/in/me`). |
+| | `add_education` | `school`, `degree`, `field_of_study`, `start_year`, `end_year`, ... | Adds an academic credential to your profile. |
+| | `add_experience` | `title`, `company`, `employment_type`, `location`, `location_type`, ... | Adds a job or role to your Experience section. |
+| | `add_skill` | `skill_name` | Adds a skill to your Skills section (with auto-suggestion). |
+| | `add_project` | `title`, `description`, `url`, `start_year`, `end_year` | Adds a project to your Projects section. |
+| | `update_job_preferences` | `job_titles`, `location_types`, `locations`, `employment_types` | Configures "Open to work" career preferences. |
 | **Browsing** | `search_people` | `query`, `limit` | Searches LinkedIn professionals with your network access. |
 | | `view_profile` | `profile_url` | Reads any member's public/network profile details. |
 | **Feed & Posts** | `get_feed` | `limit` | Reads recent posts from your personal home feed. |

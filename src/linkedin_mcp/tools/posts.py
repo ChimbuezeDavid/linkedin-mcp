@@ -150,6 +150,42 @@ async def get_feed(
             except Exception as e:
                 logger.debug(f"Error parsing feed item {i}: {e}")
 
+        # Modern LinkedIn feed fallback
+        if not posts:
+            modern_posts = await page.evaluate("""(maxCount) => {
+                const likeButtons = Array.from(document.querySelectorAll('button')).filter(b => {
+                    const t = (b.innerText || '').trim();
+                    return t === 'Like';
+                });
+                const out = [];
+                const seen = new Set();
+                for (const btn of likeButtons) {
+                    if (out.length >= maxCount) break;
+                    let container = btn;
+                    for (let i = 0; i < 7; i++) {
+                        if (container.parentElement) container = container.parentElement;
+                        if (container.tagName === 'DIV' && container.innerText.includes('Like') && container.innerText.includes('Comment')) {
+                            const authorLink = container.querySelector('a[href*="/in/"], a[href*="/company/"]');
+                            if (authorLink && !seen.has(container)) {
+                                seen.add(container);
+                                const lines = container.innerText.split('\\n').map(s => s.trim()).filter(Boolean);
+                                const author = authorLink.innerText.trim().split('\\n')[0];
+                                const textLines = lines.filter(l => !['Like', 'Comment', 'Repost', 'Send', 'Promoted', author].includes(l));
+                                out.push({
+                                    author: author || 'LinkedIn Member',
+                                    author_headline: '',
+                                    content: textLines.slice(0, 4).join(' ').slice(0, 500)
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+                return out;
+            }""", limit)
+            if modern_posts:
+                posts.extend(modern_posts)
+
         return {
             "success": True,
             "boundary": f"Viewed from {account_identity.name if account_identity else 'authenticated'}'s feed",

@@ -20,6 +20,11 @@ from linkedin_mcp.tools.self_profile import (
     get_my_profile as _get_my_profile,
     update_my_headline as _update_my_headline,
     update_my_about as _update_my_about,
+    add_education as _add_education,
+    add_experience as _add_experience,
+    add_skill as _add_skill,
+    add_project as _add_project,
+    update_job_preferences as _update_job_preferences,
 )
 from linkedin_mcp.tools.browsing import (
     search_people as _search_people,
@@ -137,6 +142,167 @@ async def update_my_about(summary: str) -> Dict[str, Any]:
         summary: New bio/summary text for your About section.
     """
     return await _update_my_about(summary=summary)
+
+
+@mcp.tool()
+async def add_education(
+    school: str,
+    degree: str = "",
+    field_of_study: str = "",
+    start_month: str = "",
+    start_year: str = "",
+    end_month: str = "",
+    end_year: str = "",
+    grade: str = "",
+    activities: str = "",
+    description: str = ""
+) -> Dict[str, Any]:
+    """Add an education credential to your own LinkedIn profile.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        school: Name of university or school (e.g. 'Afe Babalola University').
+        degree: Degree type (e.g. 'Bachelor of Science - BSc').
+        field_of_study: Major or area of study (e.g. 'Computer Science', 'Data Analysis').
+        start_month: Starting month (e.g. 'September').
+        start_year: Starting year (e.g. '2020').
+        end_month: Graduation or ending month (e.g. 'June').
+        end_year: Graduation or ending year (e.g. '2024').
+        grade: GPA or honors (optional).
+        activities: Clubs, societies, sports (optional).
+        description: Notes, courses, or achievements (optional).
+    """
+    return await _add_education(
+        school=school,
+        degree=degree,
+        field_of_study=field_of_study,
+        start_month=start_month,
+        start_year=start_year,
+        end_month=end_month,
+        end_year=end_year,
+        grade=grade,
+        activities=activities,
+        description=description
+    )
+
+
+@mcp.tool()
+async def add_experience(
+    title: str,
+    company: str,
+    employment_type: str = "",
+    location: str = "",
+    location_type: str = "",
+    is_current: bool = True,
+    start_month: str = "",
+    start_year: str = "",
+    end_month: str = "",
+    end_year: str = "",
+    description: str = ""
+) -> Dict[str, Any]:
+    """Add a work position or experience to your own LinkedIn profile.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        title: Job title (e.g. 'Full-Stack AI Engineer').
+        company: Company or organization name (e.g. 'AltSchool Africa').
+        employment_type: 'Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'.
+        location: City or region (e.g. 'Lagos, Nigeria').
+        location_type: 'On-site', 'Hybrid', or 'Remote'.
+        is_current: Whether you currently work in this role (default: True).
+        start_month: Start month (e.g. 'January').
+        start_year: Start year (e.g. '2024').
+        end_month: End month (if not current).
+        end_year: End year (if not current).
+        description: Role accomplishments and responsibilities.
+    """
+    return await _add_experience(
+        title=title,
+        company=company,
+        employment_type=employment_type,
+        location=location,
+        location_type=location_type,
+        is_current=is_current,
+        start_month=start_month,
+        start_year=start_year,
+        end_month=end_month,
+        end_year=end_year,
+        description=description
+    )
+
+
+@mcp.tool()
+async def add_skill(skill_name: str) -> Dict[str, Any]:
+    """Add a skill to your own LinkedIn profile.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        skill_name: The name of the skill (e.g. 'Model Context Protocol (MCP)', 'Python', 'FastAPI').
+    """
+    return await _add_skill(skill_name=skill_name)
+
+
+@mcp.tool()
+async def add_project(
+    title: str,
+    description: str = "",
+    url: str = "",
+    start_month: str = "",
+    start_year: str = "",
+    end_month: str = "",
+    end_year: str = ""
+) -> Dict[str, Any]:
+    """Add a project to your own LinkedIn profile under Projects.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        title: Project title or name (e.g. 'Argus Agent', 'NairaPulse AI').
+        description: Description of the project, architecture, tech stack, and achievements.
+        url: Link to project demo or repository (optional).
+        start_month: Starting month (e.g. 'January').
+        start_year: Starting year (e.g. '2024').
+        end_month: Ending month (optional).
+        end_year: Ending year (optional).
+    """
+    return await _add_project(
+        title=title,
+        description=description,
+        url=url,
+        start_month=start_month,
+        start_year=start_year,
+        end_month=end_month,
+        end_year=end_year
+    )
+
+
+@mcp.tool()
+async def update_job_preferences(
+    job_titles: Optional[List[str]] = None,
+    location_types: Optional[List[str]] = None,
+    locations: Optional[List[str]] = None,
+    employment_types: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """Configure your 'Open to work' job preferences on LinkedIn.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        job_titles: List of target job titles (e.g. ['AI Engineer', 'Full-Stack Developer']).
+        location_types: Workplace modes: ['On-site', 'Hybrid', 'Remote'].
+        locations: Target cities or countries (e.g. ['Nigeria', 'United Kingdom']).
+        employment_types: Types of work: ['Full-time', 'Part-time', 'Contract', 'Internship'].
+    """
+    return await _update_job_preferences(
+        job_titles=job_titles,
+        location_types=location_types,
+        locations=locations,
+        employment_types=employment_types
+    )
+
 
 
 # ==========================================

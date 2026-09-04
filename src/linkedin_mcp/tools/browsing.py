@@ -92,6 +92,51 @@ async def search_people(
             except Exception as e:
                 logger.debug(f"Error parsing search result card {i}: {e}")
 
+        # Modern LinkedIn fallback
+        if not results:
+            modern_results = await page.evaluate("""(maxCount) => {
+                const out = [];
+                const seen = new Set();
+                const buttons = Array.from(document.querySelectorAll('button')).filter(b => {
+                    const t = (b.innerText || '').trim();
+                    const a = (b.getAttribute('aria-label') || '').trim();
+                    return t.includes('Connect') || t.includes('Follow') || t.includes('Message') ||
+                           a.includes('Connect') || a.includes('Follow') || a.includes('Message');
+                });
+                for (const btn of buttons) {
+                    if (out.length >= maxCount) break;
+                    let container = btn;
+                    for (let i = 0; i < 6; i++) {
+                        if (container.parentElement) container = container.parentElement;
+                        const link = container.querySelector('a[href*="/in/"]');
+                        if (link) {
+                            const href = link.href.split('?')[0];
+                            if (!seen.has(href)) {
+                                seen.add(href);
+                                const lines = container.innerText.split('\\n').map(s => s.trim()).filter(Boolean);
+                                const rawHeader = lines[0] || '';
+                                const parts = rawHeader.split('•').map(s => s.trim());
+                                const name = parts[0] || '';
+                                const degree = parts[1] || '';
+                                const headline = lines[1] || '';
+                                const loc = lines[2] || '';
+                                out.push({
+                                    name,
+                                    degree,
+                                    headline,
+                                    location: loc,
+                                    profile_url: href
+                                });
+                            }
+                            break;
+                        }
+                    }
+                }
+                return out;
+            }""", limit)
+            if modern_results:
+                results.extend(modern_results)
+
         return {
             "success": True,
             "boundary": f"Searched as {account_identity.name if account_identity else 'authenticated user'}",
@@ -136,31 +181,40 @@ async def view_profile(
                 "message": "LinkedIn redirected to an authwall. Profile may be private or inaccessible."
             }
 
-        # Extract name
+        # Extract name (modern LinkedIn uses h2 in top section, fallback to h1)
         name = ""
-        name_elem = page.locator("h1").first
+        name_elem = page.locator("main section:first-of-type h2, h1").first
         if await name_elem.count() > 0:
             name = (await name_elem.inner_text()).strip()
 
-        # Extract headline
+        # Extract headline (modern LinkedIn uses first p in top section, fallback to .text-body-medium)
         headline = ""
-        headline_elem = page.locator(".text-body-medium.break-words").first
+        headline_elem = page.locator("main section:first-of-type p:first-of-type, .text-body-medium.break-words").first
         if await headline_elem.count() > 0:
             headline = (await headline_elem.inner_text()).strip()
 
-        # Extract location
+        # Extract location (modern LinkedIn uses second p in top section, fallback to .text-body-small)
         location = ""
-        loc_elem = page.locator("span.text-body-small.inline.t-black--light.break-words").first
+        loc_elem = page.locator("main section:first-of-type p:nth-of-type(2), span.text-body-small.inline.t-black--light.break-words").first
         if await loc_elem.count() > 0:
             location = (await loc_elem.inner_text()).strip()
 
         # Extract about
-        about = ""
-        about_section = page.locator("section:has(#about)")
-        if await about_section.count() > 0:
-            about_elem = about_section.locator(".display-flex.ph5.pv3, div.inline-show-more-text").first
-            if await about_elem.count() > 0:
-                about = (await about_elem.inner_text()).strip()
+        about = await page.evaluate("""() => {
+            const h2 = Array.from(document.querySelectorAll('h2')).find(h => h.innerText.trim() === 'About');
+            if (!h2) return '';
+            let el = h2.parentElement;
+            for (let i = 0; i < 5; i++) {
+                if (el && el.innerText.length > 30) {
+                    const clone = el.cloneNode(true);
+                    const h = clone.querySelector('h2');
+                    if (h) h.remove();
+                    return clone.innerText.trim();
+                }
+                el = el ? el.parentElement : null;
+            }
+            return '';
+        }""")
 
         # Extract experiences
         await human_scroll(page, scrolls=2, distance=400)
