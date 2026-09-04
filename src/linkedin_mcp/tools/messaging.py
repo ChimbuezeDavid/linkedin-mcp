@@ -184,19 +184,31 @@ async def get_conversation_messages(
         await page.goto(messaging_url, wait_until="domcontentloaded")
         await human_delay(2.0, 3.5)
 
-        # Search for thread in inbox
-        search_input = page.locator("input.msg-conversations-container__search-input, input[placeholder*='Search messages' i]").first
-        if await search_input.count() > 0:
-            await search_input.fill(target_name)
-            await human_delay(1.5, 2.5)
+        # Find thread item directly from visible conversation list
+        threads = page.locator("li.msg-conversation-listitem, li.msg-conversation-card, div.msg-conversation-card")
+        total = await threads.count()
+        thread_item = None
 
-        # Click matching conversation card
-        thread_item = page.locator(f"li.msg-conversation-listitem:has-text('{target_name}'), li.msg-conversation-card:has-text('{target_name}')").first
-        if await thread_item.count() == 0:
-            # Fallback: check first available thread if search matched
-            thread_item = page.locator("li.msg-conversation-listitem, li.msg-conversation-card").first
+        for i in range(total):
+            item = threads.nth(i)
+            item_text = (await item.inner_text()).lower()
+            if target_name in item_text:
+                thread_item = item
+                break
 
-        if await thread_item.count() == 0:
+        # Fallback to search input if not in initial visible list
+        if not thread_item:
+            search_input = page.locator("input.msg-conversations-container__search-input, input[placeholder*='Search messages' i]").first
+            if await search_input.count() > 0:
+                await search_input.fill(recipient_name.strip())
+                await search_input.press("Enter")
+                await human_delay(1.5, 2.5)
+
+                search_threads = page.locator("li.msg-conversation-listitem, li.msg-conversation-card")
+                if await search_threads.count() > 0:
+                    thread_item = search_threads.first
+
+        if not thread_item:
             return {
                 "success": False,
                 "error": "THREAD_NOT_FOUND",

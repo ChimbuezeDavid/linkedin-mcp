@@ -94,48 +94,33 @@ async def search_people(
 
         # Modern LinkedIn fallback
         if not results:
-            modern_results = await page.evaluate("""(maxCount) => {
-                const out = [];
-                const seen = new Set();
-                const buttons = Array.from(document.querySelectorAll('button')).filter(b => {
-                    const t = (b.innerText || '').trim();
-                    const a = (b.getAttribute('aria-label') || '').trim();
-                    return t.includes('Connect') || t.includes('Follow') || t.includes('Message') ||
-                           a.includes('Connect') || a.includes('Follow') || a.includes('Message');
-                });
-                for (const btn of buttons) {
-                    if (out.length >= maxCount) break;
-                    let container = btn;
-                    for (let i = 0; i < 6; i++) {
-                        if (container.parentElement) container = container.parentElement;
-                        const link = container.querySelector('a[href*="/in/"]');
-                        if (link) {
-                            const href = link.href.split('?')[0];
-                            if (!seen.has(href)) {
-                                seen.add(href);
-                                const lines = container.innerText.split('\\n').map(s => s.trim()).filter(Boolean);
-                                const rawHeader = lines[0] || '';
-                                const parts = rawHeader.split('•').map(s => s.trim());
-                                const name = parts[0] || '';
-                                const degree = parts[1] || '';
-                                const headline = lines[1] || '';
-                                const loc = lines[2] || '';
-                                out.push({
-                                    name,
-                                    degree,
-                                    headline,
-                                    location: loc,
-                                    profile_url: href
-                                });
-                            }
-                            break;
-                        }
-                    }
-                }
-                return out;
-            }""", limit)
-            if modern_results:
-                results.extend(modern_results)
+            links = page.locator('a[href*="/in/"]')
+            link_count = await links.count()
+            seen_urls = set()
+            for i in range(link_count):
+                link = links.nth(i)
+                raw_href = await link.get_attribute("href") or ""
+                clean_url = raw_href.split("?")[0]
+                if not clean_url or clean_url in seen_urls or "/in/" not in clean_url:
+                    continue
+                inner = (await link.inner_text()).strip()
+                lines = [line.strip() for line in inner.split("\n") if line.strip()]
+                if len(lines) >= 2:
+                    seen_urls.add(clean_url)
+                    raw_title = lines[0]
+                    name = raw_title.split("•")[0].strip()
+                    degree = raw_title.split("•")[1].strip() if "•" in raw_title else ""
+                    headline = lines[1] if len(lines) > 1 else ""
+                    loc = lines[2] if len(lines) > 2 else ""
+                    results.append({
+                        "name": name,
+                        "degree": degree,
+                        "headline": headline,
+                        "location": loc,
+                        "profile_url": clean_url
+                    })
+                    if len(results) >= limit:
+                        break
 
         return {
             "success": True,
