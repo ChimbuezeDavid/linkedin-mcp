@@ -173,7 +173,7 @@ In your AI's custom connector settings, set the URL to:
 
 ---
 
-## 🛠️ Available MCP Tools (23 Tools)
+## 🛠️ Available MCP Tools (29 Tools)
 
 | Category | Tool Name | Parameters | Description |
 | :--- | :--- | :--- | :--- |
