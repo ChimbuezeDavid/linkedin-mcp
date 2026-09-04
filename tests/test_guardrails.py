@@ -22,6 +22,7 @@ class TestLinkedInGuardrails(unittest.TestCase):
             self_profile.add_skill,
             self_profile.add_project,
             self_profile.update_job_preferences,
+            self_profile.update_my_services,
         ]
         for tool_fn in profile_mutation_tools:
             sig = inspect.signature(tool_fn)

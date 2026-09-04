@@ -294,7 +294,10 @@ async def _open_add_section_item(page, category: str, item_name: str) -> bool:
         return False
 
     await add_sec_btn.evaluate("el => el.click()")
-    await human_delay(1.5, 2.5)
+    try:
+        await page.wait_for_selector("dialog p:has-text('Core'), dialog p:has-text('Manual setup')", timeout=15000)
+    except Exception:
+        await human_delay(2.0, 3.0)
 
     # Check if item is already visible inside dialog
     visible = await page.evaluate(f"""() => {{
@@ -307,7 +310,10 @@ async def _open_add_section_item(page, category: str, item_name: str) -> bool:
             const catP = Array.from(document.querySelectorAll('dialog p')).find(p => p.innerText.trim() === '{category}');
             if (catP) catP.parentElement.click();
         }}""")
-        await human_delay(1.0, 1.8)
+        try:
+            await page.wait_for_selector(f"dialog p:has-text('{item_name}')", timeout=8000)
+        except Exception:
+            await human_delay(1.2, 2.0)
 
     clicked = await page.evaluate(f"""() => {{
         const itemP = Array.from(document.querySelectorAll('dialog p')).find(p => p.innerText.trim() === '{item_name}');
@@ -415,19 +421,19 @@ async def add_education(
             }
 
         # School (typeahead)
-        school_input = page.locator("div:has(label:has-text('School')) input, input[placeholder*='Boston University'], input[id*='school']").first
+        school_input = page.locator("input[placeholder*='Boston University'], input[placeholder*='School'], input[id*='school']").first
         if await school_input.count() > 0:
             await _fill_typeahead(page, school_input, school)
 
         # Degree
         if degree:
-            deg_input = page.locator("div:has(label:has-text('Degree')) input, input[placeholder*='Bachelor of Science'], input[id*='degree']").first
+            deg_input = page.locator("input[placeholder*='Bachelor of Science'], input[placeholder*='Degree'], input[id*='degree']").first
             if await deg_input.count() > 0:
                 await _fill_typeahead(page, deg_input, degree)
 
         # Field of study
         if field_of_study:
-            field_input = page.locator("div:has(label:has-text('Field of study')) input, input[placeholder*='Business'], input[id*='fieldOfStudy']").first
+            field_input = page.locator("input[placeholder*='Business'], input[placeholder*='Field of study'], input[id*='fieldOfStudy']").first
             if await field_input.count() > 0:
                 await _fill_typeahead(page, field_input, field_of_study)
 
@@ -547,7 +553,7 @@ async def add_experience(
                 await _set_select_option(emp_sel, employment_type)
 
         # Company
-        comp_input = page.locator("div:has(label:has-text('Company')) input, input[placeholder*='Microsoft']").first
+        comp_input = page.locator("div:has(label:has-text('Company')) input, div:has(label:has-text('Organization')) input, input[placeholder*='Microsoft']").first
         if await comp_input.count() > 0:
             await _fill_typeahead(page, comp_input, company)
 
@@ -901,4 +907,110 @@ async def update_job_preferences(
             "location_types": location_types,
             "employment_types": employment_types
         }
+
+
+@require_auth
+async def update_my_services(
+    services_to_add: Optional[List[str]] = None,
+    services_to_remove: Optional[List[str]] = None,
+    description: Optional[str] = "",
+    account_identity: AccountIdentity = None
+) -> Dict[str, Any]:
+    """Configure or update the client services listed on your own LinkedIn profile.
+
+    Security & Boundary Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        services_to_add: List of service names to add (e.g. ['Custom Software Development', 'Web Development']).
+        services_to_remove: List of service names to remove (e.g. ['Graphic Design']).
+        description: Summary of your client offerings and experience (up to 500 characters).
+
+    Returns:
+        Status result indicating whether services were updated.
+    """
+    async with browser_manager.get_page(headless=True) as page:
+        await page.goto(config.my_profile_url, wait_until="domcontentloaded")
+        await human_delay(2.0, 3.5)
+
+        # 1. Check for pencil button on existing Providing services section
+        services_section = page.locator("section:has-text('Providing services'), div:has-text('Providing services')")
+        edit_pencil = services_section.locator("button[aria-label*='Edit services'], button:has(svg[data-test-icon='pencil-small'])").first
+        if await edit_pencil.count() > 0:
+            await edit_pencil.evaluate("el => el.click()")
+            await human_delay(2.0, 3.5)
+        else:
+            # 2. Fallback to Add section flow
+            opened = await _open_add_section_item(page, "Core", "Add services")
+            if not opened:
+                vanity = account_identity.vanity_name if account_identity else "me"
+                await page.goto(f"https://www.linkedin.com/in/{vanity}/opportunities/services/onboarding/", wait_until="domcontentloaded")
+                await human_delay(2.5, 4.0)
+
+        # 1. Remove services if specified
+        if services_to_remove:
+            for s_rem in services_to_remove:
+                btn = page.locator(f"[aria-label*='Remove'][aria-label*='{s_rem}']").first
+                if await btn.count() > 0:
+                    await btn.click()
+                    await human_delay(0.5, 1.0)
+
+        # 2. Add services if specified
+        if services_to_add:
+            add_link = page.locator("a:has-text('Add Services'), button:has-text('Add Services')").first
+            if await add_link.count() > 0:
+                await add_link.evaluate("el => el.click()")
+                await human_delay(1.5, 2.5)
+
+                search_input = page.locator("input[placeholder*='Search services']").first
+                for s_add in services_to_add:
+                    await search_input.click()
+                    await page.keyboard.press("ControlOrMeta+A")
+                    await page.keyboard.press("Backspace")
+                    keyword = s_add.split()[0] if len(s_add.split()) > 1 else s_add
+                    await search_input.type(keyword, delay=20)
+                    await human_delay(1.0, 1.5)
+
+                    await page.evaluate(f"""() => {{
+                        const items = Array.from(document.querySelectorAll('div[role="dialog"] div, dialog div, div[role="dialog"] li, dialog li, div[role="dialog"] p, dialog p'));
+                        const match = items.find(e => e.children.length === 0 && e.innerText.trim().toLowerCase() === '{s_add.lower()}');
+                        if (match) match.click();
+                    }}""")
+                    await human_delay(0.6, 1.2)
+
+                # Save picker
+                save_picker = page.locator("button:has-text('Save')").first
+                if await save_picker.count() > 0:
+                    await save_picker.click()
+                    await human_delay(1.5, 2.5)
+
+        # 3. Fill description if specified
+        if description:
+            desc_area = page.locator("textarea[placeholder*='Ex: 10+ years'], textarea").first
+            if await desc_area.count() > 0:
+                await desc_area.click()
+                await page.keyboard.press("ControlOrMeta+A")
+                await page.keyboard.press("Backspace")
+                await desc_area.fill(description)
+                await human_delay(0.5, 1.0)
+
+        # 4. Save main form
+        save_main = page.locator("button:has-text('Save')").first
+        if await save_main.count() == 0:
+            return {
+                "success": False,
+                "error": "SAVE_BUTTON_NOT_FOUND",
+                "message": "Could not locate Save button on services form."
+            }
+
+        await save_main.click()
+        await human_delay(2.5, 4.0)
+
+        return {
+            "success": True,
+            "boundary": "AUTHENTICATED_SELF_ONLY",
+            "message": "Successfully updated services on your LinkedIn profile.",
+            "services_added": services_to_add or [],
+            "services_removed": services_to_remove or []
+        }
+
 

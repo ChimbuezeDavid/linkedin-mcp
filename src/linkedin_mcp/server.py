@@ -25,6 +25,7 @@ from linkedin_mcp.tools.self_profile import (
     add_skill as _add_skill,
     add_project as _add_project,
     update_job_preferences as _update_job_preferences,
+    update_my_services as _update_my_services,
 )
 from linkedin_mcp.tools.browsing import (
     search_people as _search_people,
@@ -302,6 +303,29 @@ async def update_job_preferences(
         locations=locations,
         employment_types=employment_types
     )
+
+
+@mcp.tool()
+async def update_my_services(
+    services_to_add: Optional[List[str]] = None,
+    services_to_remove: Optional[List[str]] = None,
+    description: str = ""
+) -> Dict[str, Any]:
+    """Configure or update client services listed on your own LinkedIn profile.
+
+    Security Notice: Strictly locked to your authenticated account (/in/me).
+
+    Args:
+        services_to_add: List of service names to add (e.g. ['Custom Software Development', 'Web Development']).
+        services_to_remove: List of service names to remove (e.g. ['Graphic Design']).
+        description: Summary of client offerings and experience (up to 500 characters).
+    """
+    return await _update_my_services(
+        services_to_add=services_to_add,
+        services_to_remove=services_to_remove,
+        description=description
+    )
+
 
 
 

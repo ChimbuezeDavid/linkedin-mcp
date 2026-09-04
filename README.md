@@ -188,6 +188,7 @@ In your AI's custom connector settings, set the URL to:
 | | `add_skill` | `skill_name` | Adds a skill to your Skills section (with auto-suggestion). |
 | | `add_project` | `title`, `description`, `url`, `start_year`, `end_year` | Adds a project to your Projects section. |
 | | `update_job_preferences` | `job_titles`, `location_types`, `locations`, `employment_types` | Configures "Open to work" career preferences. |
+| | `update_my_services` | `services_to_add`, `services_to_remove`, `description` | Updates client services and offerings on your profile. |
 | **Browsing** | `search_people` | `query`, `limit` | Searches LinkedIn professionals with your network access. |
 | | `view_profile` | `profile_url` | Reads any member's public/network profile details. |
 | **Feed & Posts** | `get_feed` | `limit` | Reads recent posts from your personal home feed. |
