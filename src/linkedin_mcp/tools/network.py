@@ -129,3 +129,75 @@ async def get_pending_invitations(
             "count": len(invitations),
             "invitations": invitations
         }
+
+
+@require_auth
+async def manage_invitation(
+    sender_name: str,
+    action: str = "accept",
+    account_identity: AccountIdentity = None
+) -> Dict[str, Any]:
+    """Accept or ignore an incoming connection invitation on your account.
+
+    Args:
+        sender_name: Name of the person whose invitation you want to manage.
+        action: Either 'accept' or 'ignore' (default: 'accept').
+
+    Returns:
+        Status result of managing the connection invitation.
+    """
+    if not sender_name or not sender_name.strip():
+        return {"success": False, "error": "EMPTY_NAME", "message": "Sender name is required."}
+
+    action_norm = action.strip().lower()
+    if action_norm not in ["accept", "ignore"]:
+        return {"success": False, "error": "INVALID_ACTION", "message": "Action must be either 'accept' or 'ignore'."}
+
+    url = f"{config.base_url}/mynetwork/invitation-manager/"
+
+    async with browser_manager.get_page(headless=True) as page:
+        await page.goto(url, wait_until="domcontentloaded")
+        await human_delay(2.0, 3.5)
+
+        cards = page.locator("li.invitation-card, div.invitation-card")
+        total = await cards.count()
+        matched_card = None
+
+        for i in range(min(total, 20)):
+            card = cards.nth(i)
+            name_elem = card.locator(".invitation-card__title, a[data-control-name='invitee_title']").first
+            if await name_elem.count() > 0:
+                name_text = (await name_elem.inner_text()).strip().lower()
+                if sender_name.strip().lower() in name_text:
+                    matched_card = card
+                    break
+
+        if not matched_card:
+            return {
+                "success": False,
+                "error": "INVITATION_NOT_FOUND",
+                "message": f"No pending invitation found from '{sender_name}'."
+            }
+
+        if action_norm == "accept":
+            btn = matched_card.locator("button:has-text('Accept'), button[aria-label*='Accept' i]").first
+        else:
+            btn = matched_card.locator("button:has-text('Ignore'), button[aria-label*='Ignore' i]").first
+
+        if await btn.count() == 0:
+            return {
+                "success": False,
+                "error": "BUTTON_NOT_FOUND",
+                "message": f"Could not find the '{action_norm}' button for '{sender_name}'."
+            }
+
+        await btn.click()
+        await human_delay(2.0, 3.5)
+
+        return {
+            "success": True,
+            "boundary": f"Managed on {account_identity.name if account_identity else 'authenticated user'}'s account",
+            "message": f"Successfully executed '{action_norm}' on invitation from {sender_name}.",
+            "sender": sender_name,
+            "action": action_norm
+        }

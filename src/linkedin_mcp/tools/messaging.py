@@ -156,3 +156,93 @@ async def send_message(
             "message": "Direct message sent successfully.",
             "recipient": target
         }
+
+
+@require_auth
+async def get_conversation_messages(
+    recipient_name: str,
+    limit: int = 15,
+    account_identity: AccountIdentity = None
+) -> Dict[str, Any]:
+    """Retrieve full chronological message history with a specific connection from your inbox.
+
+    Args:
+        recipient_name: Name of the contact or keyword to locate the conversation thread.
+        limit: Maximum number of recent messages to retrieve from the thread (default: 15).
+
+    Returns:
+        List of chronological messages showing author, message body, and timestamp.
+    """
+    if not recipient_name or not recipient_name.strip():
+        return {"success": False, "error": "EMPTY_RECIPIENT", "message": "Recipient name is required."}
+
+    target_name = recipient_name.strip().lower()
+    limit = max(1, min(limit, 30))
+    messaging_url = f"{config.base_url}/messaging/"
+
+    async with browser_manager.get_page(headless=True) as page:
+        await page.goto(messaging_url, wait_until="domcontentloaded")
+        await human_delay(2.0, 3.5)
+
+        # Search for thread in inbox
+        search_input = page.locator("input.msg-conversations-container__search-input, input[placeholder*='Search messages' i]").first
+        if await search_input.count() > 0:
+            await search_input.fill(target_name)
+            await human_delay(1.5, 2.5)
+
+        # Click matching conversation card
+        thread_item = page.locator(f"li.msg-conversation-listitem:has-text('{target_name}'), li.msg-conversation-card:has-text('{target_name}')").first
+        if await thread_item.count() == 0:
+            # Fallback: check first available thread if search matched
+            thread_item = page.locator("li.msg-conversation-listitem, li.msg-conversation-card").first
+
+        if await thread_item.count() == 0:
+            return {
+                "success": False,
+                "error": "THREAD_NOT_FOUND",
+                "message": f"Could not find any messaging thread matching '{recipient_name}'."
+            }
+
+        await thread_item.click()
+        await human_delay(1.5, 3.0)
+
+        # Scrape messages in active thread
+        messages: List[Dict[str, Any]] = []
+        msg_elements = page.locator("li.msg-s-message-list__event, div.msg-s-event-listitem")
+        total_msgs = await msg_elements.count()
+        start_idx = max(0, total_msgs - limit)
+
+        for i in range(start_idx, total_msgs):
+            elem = msg_elements.nth(i)
+            try:
+                sender = ""
+                sender_elem = elem.locator(".msg-s-message-group__name, .msg-s-message-group__profile-link").first
+                if await sender_elem.count() > 0:
+                    sender = (await sender_elem.inner_text()).strip()
+
+                body = ""
+                body_elem = elem.locator("p.msg-s-event-listitem__body").first
+                if await body_elem.count() > 0:
+                    body = (await body_elem.inner_text()).strip()
+
+                timestamp = ""
+                time_elem = elem.locator("time.msg-s-message-group__timestamp, time").first
+                if await time_elem.count() > 0:
+                    timestamp = (await time_elem.inner_text()).strip()
+
+                if body:
+                    messages.append({
+                        "sender": sender or "Participant",
+                        "text": body,
+                        "timestamp": timestamp
+                    })
+            except Exception as e:
+                logger.debug(f"Error parsing message {i}: {e}")
+
+        return {
+            "success": True,
+            "boundary": f"Inbox thread for {account_identity.name if account_identity else 'authenticated user'}",
+            "contact": recipient_name,
+            "message_count": len(messages),
+            "messages": messages
+        }

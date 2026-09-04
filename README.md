@@ -30,12 +30,12 @@ You do **not** need to clone this repository to use the LinkedIn MCP server. As 
 Before connecting to an AI assistant, authenticate your LinkedIn session once:
 
 ```bash
-uvx --from git+https://github.com/<your-username>/linkedin-mcp python -c "import asyncio; from linkedin_mcp.tools.auth import linkedin_start_login; asyncio.run(linkedin_start_login())"
+uvx --from git+https://github.com/ChimbuezeDavid/linkedin-mcp python -c "import asyncio; from linkedin_mcp.tools.auth import linkedin_start_login; asyncio.run(linkedin_start_login())"
 ```
 
 1. A dedicated Google Chrome window will open.
 2. Sign in with your LinkedIn credentials (and complete 2FA if prompted).
-3. Once your home feed loads, the tool verifies your account and securely saves your session state to `~/.linkedin_mcp`. Your session persists across restarts.
+3. Once your home feed loads, the tool verifies your account and securely saves your session state to `~/.linkedin_mcp`. Your session persists across restarts with sliding window keep-alive protection.
 
 ---
 
@@ -55,7 +55,7 @@ Add to your `claude_desktop_config.json` (`%APPDATA%\Claude\claude_desktop_confi
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/<your-username>/linkedin-mcp",
+        "git+https://github.com/ChimbuezeDavid/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
@@ -73,7 +73,7 @@ Add to your Antigravity MCP settings:
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/<your-username>/linkedin-mcp",
+        "git+https://github.com/ChimbuezeDavid/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
@@ -91,7 +91,7 @@ Add to `.cursor/mcp.json` or your global MCP settings:
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/<your-username>/linkedin-mcp",
+        "git+https://github.com/ChimbuezeDavid/linkedin-mcp",
         "linkedin-mcp"
       ]
     }
@@ -101,7 +101,7 @@ Add to `.cursor/mcp.json` or your global MCP settings:
 
 #### 4. Claude Code CLI
 ```bash
-claude mcp add linkedin uvx --from git+https://github.com/<your-username>/linkedin-mcp linkedin-mcp
+claude mcp add linkedin uvx --from git+https://github.com/ChimbuezeDavid/linkedin-mcp linkedin-mcp
 ```
 
 ---
@@ -110,7 +110,7 @@ claude mcp add linkedin uvx --from git+https://github.com/<your-username>/linked
 If you want to modify or contribute to the codebase:
 
 ```bash
-git clone https://github.com/<your-username>/linkedin-mcp.git
+git clone https://github.com/ChimbuezeDavid/linkedin-mcp.git
 cd linkedin-mcp
 uv sync
 ```
@@ -173,31 +173,39 @@ In your AI's custom connector settings, set the URL to:
 
 ---
 
-## 🛠️ Available MCP Tools
+## 🛠️ Available MCP Tools (23 Tools)
 
 | Category | Tool Name | Parameters | Description |
 | :--- | :--- | :--- | :--- |
-| **Auth** | `check_login_status` | *(none)* | Checks active session health and verified user identity. |
-| | `start_login` | *(none)* | Opens interactive Chrome window for 1-click login / 2FA. |
-| | `logout` | *(none)* | Clears all stored session credentials and cookies. |
+| **Auth & Keep-Alive** | `check_login_status` | *(none)* | Checks session health, verified identity, and sliding window telemetry. |
+| | `start_login` | `timeout_seconds` | Opens interactive Chrome window for 1-click login / 2FA. |
+| | `logout` | *(none)* | Clears all stored session credentials, cookies, and local cache. |
+| | `refresh_session` | *(none)* | Performs a silent heartbeat to extend the 30-day session sliding window. |
 | **Self-Profile** | `get_my_profile` | *(none)* | Retrieves full profile details for your authenticated account. |
 | *(Hard-Locked)* | `update_my_headline` | `headline` | Updates your headline (locked strictly to `/in/me`). |
 | | `update_my_about` | `summary` | Updates your bio/About section (locked strictly to `/in/me`). |
-| | `add_education` | `school`, `degree`, `field_of_study`, `start_year`, `end_year`, ... | Adds an academic credential to your profile. |
-| | `add_experience` | `title`, `company`, `employment_type`, `location`, `location_type`, ... | Adds a job or role to your Experience section. |
+| | `add_education` | `school`, `degree`, `field_of_study`, ... | Adds an academic credential to your profile. |
+| | `add_experience` | `title`, `company`, `employment_type`, ... | Adds a job or role to your Experience section. |
 | | `add_skill` | `skill_name` | Adds a skill to your Skills section (with auto-suggestion). |
-| | `add_project` | `title`, `description`, `url`, `start_year`, `end_year` | Adds a project to your Projects section. |
-| | `update_job_preferences` | `job_titles`, `location_types`, `locations`, `employment_types` | Configures "Open to work" career preferences. |
-| | `update_my_services` | `services_to_add`, `services_to_remove`, `description` | Updates client services and offerings on your profile. |
-| **Browsing** | `search_people` | `query`, `limit` | Searches LinkedIn professionals with your network access. |
+| | `add_project` | `title`, `description`, `url`, ... | Adds a project to your Projects section. |
+| | `update_job_preferences` | `job_titles`, `location_types`, ... | Configures "Open to work" career preferences. |
+| | `update_my_services` | `services_to_add`, `services_to_remove`, ... | Updates client services and offerings on your profile. |
+| **Browsing** | `search_people` | `keywords`, `location`, `company`, `limit` | Searches LinkedIn professionals with your network access. |
 | | `view_profile` | `profile_url` | Reads any member's public/network profile details. |
-| **Feed & Posts** | `get_feed` | `limit` | Reads recent posts from your personal home feed. |
-| | `create_post` | `text` | Publishes a new post authored by your account. |
+| **Feed, Posts & Polls** | `get_feed` | `limit` | Reads recent posts from your personal home feed. |
+| | `create_post` | `text`, `media_path` *(optional)* | Publishes a post authored by your account, optionally with image/PDF. |
+| | `create_poll` | `question`, `options`, `duration` | Publishes an interactive poll to your feed (2-4 options). |
 | | `comment_on_post` | `post_url`, `comment_text` | Comments on a post as your authenticated profile. |
-| **Messaging** | `list_conversations` | `limit` | Lists recent direct message threads in your inbox. |
-| | `send_message` | `recipient_name`, `message_text` | Dispatches a direct message from your account. |
-| **Network** | `send_connection_request` | `profile_url`, `custom_note` | Sends a connection invitation with an optional note. |
+| **Analytics & Insights**| `get_post_analytics` | `limit` | Retrieves impressions, reactions, and comments for your recent posts. |
+| | `get_profile_views` | *(none)* | Retrieves private profile view counts and viewer demographics. |
+| **Direct Messaging** | `list_conversations` | `limit` | Lists recent direct message threads in your inbox. |
+| | `get_conversation_messages` | `recipient_name`, `limit` | Reads complete message history and replies for a specific thread. |
+| | `send_message` | `recipient_profile_url`, `message_text` | Dispatches a direct message from your account. |
+| **Network & Growth** | `send_connection_request` | `profile_url`, `custom_note` | Sends a connection invitation with an optional note. |
 | | `get_pending_invitations` | *(none)* | Lists incoming connection invitations received by your account. |
+| | `manage_invitation` | `sender_name`, `action` | Accepts or ignores a pending connection invitation. |
+| **Agentic Skills** | `get_network_briefing` | `limit` | Generates a daily executive digest: inbox, invitations, analytics & feed. |
+| | `analyze_profile_strength` | *(none)* | Audits completeness across 6 sections and gives actionable score & tips. |
 
 ---
 

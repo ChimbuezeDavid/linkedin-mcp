@@ -24,6 +24,8 @@ class AccountIdentity(BaseModel):
     profile_url: str = Field(description="Canonical profile URL")
     headline: Optional[str] = Field(default=None, description="Profile headline")
     last_verified: float = Field(default_factory=time.time)
+    first_authenticated: float = Field(default_factory=time.time, description="Initial login timestamp")
+    last_active_refresh: float = Field(default_factory=time.time, description="Timestamp of last keep-alive refresh")
     is_authenticated: bool = True
 
 
@@ -55,6 +57,65 @@ class AuthManager:
             identity.model_dump_json(indent=2),
             encoding="utf-8"
         )
+
+    def get_session_health(self) -> dict:
+        """Evaluate session health, age, and refresh recommendation."""
+        identity = self.get_cached_identity()
+        if not identity:
+            return {
+                "status": "UNAUTHENTICATED",
+                "message": "No active session found. Please run start_login."
+            }
+
+        now = time.time()
+        start_ts = getattr(identity, "first_authenticated", None) or identity.last_verified
+        refresh_ts = getattr(identity, "last_active_refresh", None) or identity.last_verified
+        age_days = round((now - start_ts) / 86400, 1)
+        since_last_refresh_hours = round((now - refresh_ts) / 3600, 1)
+
+        # Evaluate status
+        if age_days > 45:
+            health_status = "STALE_REAUTH_RECOMMENDED"
+            msg = f"Session is {age_days} days old. A clean interactive login via start_login is recommended for security."
+        elif since_last_refresh_hours > 48:
+            health_status = "NEEDS_REFRESH"
+            msg = f"Session was refreshed {since_last_refresh_hours} hours ago. Run refresh_session to renew sliding window."
+        else:
+            health_status = "HEALTHY"
+            msg = f"Session is active and healthy (refreshed {since_last_refresh_hours} hours ago)."
+
+        return {
+            "status": health_status,
+            "session_age_days": age_days,
+            "hours_since_last_refresh": since_last_refresh_hours,
+            "estimated_sliding_window_days_remaining": max(0.0, round(30 - (since_last_refresh_hours / 24), 1)),
+            "message": msg,
+            "user": identity.name,
+            "profile_url": identity.profile_url
+        }
+
+    async def refresh_session_heartbeat(self) -> dict:
+        """Perform a lightweight silent visit to your profile to refresh LinkedIn's sliding session window."""
+        identity = self.get_cached_identity()
+        if not identity:
+            return {"success": False, "error": "NOT_AUTHENTICATED", "message": "No active session to refresh."}
+
+        async with browser_manager.get_page(headless=True) as page:
+            verified = await self.verify_session(page)
+            if verified:
+                verified.last_active_refresh = time.time()
+                self.save_identity(verified)
+                return {
+                    "success": True,
+                    "message": "Session successfully refreshed. 30-day sliding window renewed.",
+                    "health": self.get_session_health()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "SESSION_EXPIRED",
+                    "message": "Session could not be verified. Please run start_login."
+                }
 
     async def verify_session(self, page: Page) -> Optional[AccountIdentity]:
         """Navigate to LinkedIn and verify if session is authenticated."""

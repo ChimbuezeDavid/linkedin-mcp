@@ -15,6 +15,7 @@ from linkedin_mcp.tools.auth import (
     linkedin_login_status,
     linkedin_start_login,
     linkedin_logout,
+    refresh_session as _refresh_session,
 )
 from linkedin_mcp.tools.self_profile import (
     get_my_profile as _get_my_profile,
@@ -33,16 +34,27 @@ from linkedin_mcp.tools.browsing import (
 )
 from linkedin_mcp.tools.posts import (
     create_post as _create_post,
+    create_poll as _create_poll,
     get_feed as _get_feed,
     comment_on_post as _comment_on_post,
 )
+from linkedin_mcp.tools.analytics import (
+    get_post_analytics as _get_post_analytics,
+    get_profile_views as _get_profile_views,
+)
 from linkedin_mcp.tools.messaging import (
     list_conversations as _list_conversations,
+    get_conversation_messages as _get_conversation_messages,
     send_message as _send_message,
 )
 from linkedin_mcp.tools.network import (
     send_connection_request as _send_connection_request,
     get_pending_invitations as _get_pending_invitations,
+    manage_invitation as _manage_invitation,
+)
+from linkedin_mcp.tools.skills import (
+    get_network_briefing as _get_network_briefing,
+    analyze_profile_strength as _analyze_profile_strength,
 )
 
 # Configure logging to stderr (stdio is reserved for JSON-RPC MCP messages)
@@ -106,6 +118,12 @@ async def start_login(timeout_seconds: int = 300) -> Dict[str, Any]:
 async def logout() -> Dict[str, Any]:
     """Clear all stored LinkedIn session credentials, cookies, and local profile caches."""
     return await linkedin_logout()
+
+
+@mcp.tool()
+async def refresh_session() -> Dict[str, Any]:
+    """Test and extend the active LinkedIn session validity with sliding window keep-alive telemetry."""
+    return await _refresh_session()
 
 
 # ==========================================
@@ -371,13 +389,30 @@ async def view_profile(profile_url: str) -> Dict[str, Any]:
 # ==========================================
 
 @mcp.tool()
-async def create_post(text: str) -> Dict[str, Any]:
-    """Publish a post to your LinkedIn feed authored exclusively by your profile.
+async def create_post(text: str, media_path: Optional[str] = None) -> Dict[str, Any]:
+    """Publish a post to your LinkedIn feed authored exclusively by your profile, optionally attaching an image or document.
 
     Args:
         text: The text content of your post.
+        media_path: Optional path to an image (.png, .jpg) or document (.pdf) to attach.
     """
-    return await _create_post(text=text)
+    return await _create_post(text=text, media_path=media_path)
+
+
+@mcp.tool()
+async def create_poll(
+    question: str,
+    options: List[str],
+    duration: str = "1_week"
+) -> Dict[str, Any]:
+    """Create and publish an interactive poll to your LinkedIn feed.
+
+    Args:
+        question: The question for the poll (up to 140 chars).
+        options: List of poll answer options (minimum 2, maximum 4 options, each up to 30 chars).
+        duration: Duration for the poll to run: '1_day', '3_days', '1_week', or '2_weeks' (default: '1_week').
+    """
+    return await _create_poll(question=question, options=options, duration=duration)
 
 
 @mcp.tool()
@@ -402,6 +437,26 @@ async def comment_on_post(post_url: str, comment_text: str) -> Dict[str, Any]:
 
 
 # ==========================================
+# Analytics & Insights
+# ==========================================
+
+@mcp.tool()
+async def get_post_analytics(limit: int = 5) -> Dict[str, Any]:
+    """Retrieve engagement metrics (impressions, reactions, comments, reposts) for recent posts authored by your account.
+
+    Args:
+        limit: Maximum number of recent posts to analyze (default: 5, max: 15).
+    """
+    return await _get_post_analytics(limit=limit)
+
+
+@mcp.tool()
+async def get_profile_views() -> Dict[str, Any]:
+    """Retrieve private profile view analytics and viewer demographics for your account."""
+    return await _get_profile_views()
+
+
+# ==========================================
 # Direct Messaging
 # ==========================================
 
@@ -413,6 +468,17 @@ async def list_conversations(limit: int = 10) -> Dict[str, Any]:
         limit: Maximum conversations to retrieve (default: 10, max: 20).
     """
     return await _list_conversations(limit=limit)
+
+
+@mcp.tool()
+async def get_conversation_messages(recipient_name: str, limit: int = 10) -> Dict[str, Any]:
+    """Read full message history and replies for a specific conversation in your inbox.
+
+    Args:
+        recipient_name: Name or keyword matching the conversation partner.
+        limit: Maximum number of recent messages to retrieve (default: 10, max: 30).
+    """
+    return await _get_conversation_messages(recipient_name=recipient_name, limit=limit)
 
 
 @mcp.tool()
@@ -451,6 +517,37 @@ async def send_connection_request(profile_url: str, custom_note: str = "") -> Di
 async def get_pending_invitations() -> Dict[str, Any]:
     """List pending incoming connection invitations received by your account."""
     return await _get_pending_invitations()
+
+
+@mcp.tool()
+async def manage_invitation(sender_name: str, action: str = "accept") -> Dict[str, Any]:
+    """Accept or ignore a pending incoming connection invitation.
+
+    Args:
+        sender_name: Name of the person whose invitation to manage.
+        action: Either 'accept' or 'ignore' (default: 'accept').
+    """
+    return await _manage_invitation(sender_name=sender_name, action=action)
+
+
+# ==========================================
+# Agentic Skills & Automation
+# ==========================================
+
+@mcp.tool()
+async def get_network_briefing(limit: int = 5) -> Dict[str, Any]:
+    """Synthesize a complete daily intelligence briefing: unread messages, pending invitations, post analytics, and top feed trends.
+
+    Args:
+        limit: Number of feed items and recent posts to include in the briefing (default: 5).
+    """
+    return await _get_network_briefing(limit=limit)
+
+
+@mcp.tool()
+async def analyze_profile_strength() -> Dict[str, Any]:
+    """Audit your profile completeness, section strength, and generate actionable recommendations to optimize LinkedIn discoverability."""
+    return await _analyze_profile_strength()
 
 
 def main() -> None:

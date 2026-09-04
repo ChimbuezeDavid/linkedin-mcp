@@ -11,21 +11,24 @@ logger = logging.getLogger("linkedin_mcp.tools.auth")
 
 
 async def linkedin_login_status() -> Dict[str, Any]:
-    """Check the current LinkedIn authentication status and retrieve verified user details.
+    """Check the current LinkedIn authentication status, session health, and verified user details.
 
     Returns:
         A dictionary containing:
         - is_authenticated (bool): Whether a valid authenticated session exists.
         - user (dict, optional): The authenticated user's name, vanity_name, profile_url, and headline.
+        - session_health (dict): Telemetry showing session age, refresh history, and keep-alive status.
         - message (str): Human-readable status description.
     """
     cached = auth_manager.get_cached_identity()
+    health = auth_manager.get_session_health()
     if cached:
         return {
             "is_authenticated": True,
             "status": "AUTHENTICATED",
             "account_boundary": f"Locked to {cached.name} ({cached.profile_url})",
             "user": cached.model_dump(),
+            "session_health": health,
             "message": f"Active session verified for {cached.name} ({cached.profile_url})."
         }
 
@@ -36,6 +39,7 @@ async def linkedin_login_status() -> Dict[str, Any]:
             "status": "UNAUTHENTICATED",
             "account_boundary": "NONE",
             "user": None,
+            "session_health": health,
             "message": (
                 "Not authenticated. No actions can be performed without an active session. "
                 "Please invoke 'linkedin_start_login' to log in."
@@ -91,3 +95,15 @@ async def linkedin_logout() -> Dict[str, Any]:
         Confirmation that the session has been reset.
     """
     return auth_manager.logout()
+
+
+async def refresh_session() -> Dict[str, Any]:
+    """Perform a silent keep-alive refresh on your LinkedIn session.
+
+    Renews the 30-day sliding window on LinkedIn's backend by performing a lightweight
+    verification visit to your profile from your residential IP.
+
+    Returns:
+        Status result and current session health telemetry.
+    """
+    return await auth_manager.refresh_session_heartbeat()
