@@ -3,6 +3,7 @@
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Tools: 29](https://img.shields.io/badge/tools-29%20available-green.svg)](#-available-mcp-tools-29-tools)
+[![CI](https://github.com/ChimbuezeDavid/linkedin-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ChimbuezeDavid/linkedin-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A production-grade Model Context Protocol (MCP) server that connects your AI assistant (Claude, Grok, Cursor, Antigravity) to LinkedIn with **human-like stealth browser automation**, **mathematical account boundary guardrails**, and **zero official API restrictions**.
